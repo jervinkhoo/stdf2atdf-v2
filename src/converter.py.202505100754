@@ -1,0 +1,170 @@
+# src/converter.py
+import logging
+from typing import Optional, List, Dict
+
+# from .core.utils.files import managed_files # Old import
+#from .core.stdf.preprocessing import determine_file_params, read_record_header
+# Imports moved to stdf_parser module
+from .core.stdf_parser.handler import initialize_record_entries, setup_record_flags, determine_file_params, \
+    read_record_header, handle_stdf_entry # Changed from handle_stdf_entries
+from .core.stdf_parser.templates import create_stdf_mapping, get_stdf_template # Moved STDF template functions
+# Imports from new utils location
+from .utils.files import validate_input_file, managed_files # Added managed_files here
+from .utils.decorators import timing_decorator
+# Database import removed/commented previously
+# from .core.utils.database import create_database_from_atdf
+# ATDF imports - REMOVE old handler, ADD new generator handler parts
+# from .core.atdf.handler import handle_atdf_entries # REMOVE THIS
+from .core.atdf_generator.handler import handle_atdf_entry, write_atdf_file # ADD THIS
+from .core.atdf_generator.templates import get_atdf_template # Import from new location
+from .core.data_transformers.record_modifiers.base import preprocess_record
+from .core.data_transformers.id_enricher import add_hierarchical_ids
+
+# try:
+#     import django
+#
+#     django_available = True
+# except ImportError:
+#     django_available = False
+
+logger = logging.getLogger(__name__)
+
+
+def process_record(params: Dict) -> None:
+    """
+    Process a single STDF record.
+    Phase 3 Change: This now only handles the STDF part and calls the new ATDF generator
+                    for dictionary creation and file writing if needed.
+                    Preprocessing and ID enrichment are temporarily bypassed here and
+                    will be integrated in later phases via converter_service.py.
+    """
+    # 1. Process STDF data (get STDF dictionary representation)
+    #    handle_stdf_entry parses the data and updates params['stdf_template']['fields'] with values.
+    #    The result is then appended to params['stdf_processed_entries'][record_type].
+    if params.get('data'): # Check if data exists (e.g., not EPS)
+        # Call handle_stdf_entry directly
+        parsed_stdf_record = handle_stdf_entry(
+            params['stdf_template'],
+            params['data'],
+            params['endianness']
+        )
+        # Append the parsed STDF record to the stdf_processed_entries collection
+        # This step was previously inside handle_stdf_entries
+        stdf_record_type = params['stdf_template'].get('record_type', 'Unknown') # Get record_type for stdf collection
+        if stdf_record_type not in params['stdf_processed_entries']:
+            params['stdf_processed_entries'][stdf_record_type] = []
+        params['stdf_processed_entries'][stdf_record_type].append(parsed_stdf_record)
+
+    # 2. Generate base ATDF dictionary (using the new ATDF generator handler)
+    #    This uses the values populated in params['stdf_template'] by the call to handle_stdf_entry above.
+    base_atdf_entry = handle_atdf_entry(params['atdf_template'], params['stdf_template'])
+
+    # 3. Apply Preprocessor/Modifier
+    # Get record_type for preprocessor, enricher, and atdf collection from atdf_template
+    atdf_record_type = params['atdf_template']['record_type']
+    modified_atdf_entry = preprocess_record(
+        atdf_record_type,
+        base_atdf_entry.copy(), # Pass a copy to avoid modifying base_atdf_entry if it's used elsewhere
+        params.get('preprocessor_type')
+    )
+
+    # 4. Write to ATDF file if requested (using the MODIFIED entry)
+    atdf_file_handle = params.get('atdf_file')
+    if atdf_file_handle:
+        write_atdf_file(atdf_file_handle, modified_atdf_entry, params['atdf_template'])
+
+    # 5. Apply ID Enrichment (modifies modified_atdf_entry in place and returns it)
+    enriched_atdf_entry = add_hierarchical_ids(
+        atdf_record_type,
+        modified_atdf_entry, # Pass the (potentially) modified dictionary
+        params['atdf_processed_entries'], # The main collection for context
+        params['counters']
+    )
+
+    # 6. Append the enriched entry to the main ATDF collection
+    if atdf_record_type not in params['atdf_processed_entries']: # Ensure list exists
+        params['atdf_processed_entries'][atdf_record_type] = []
+    params['atdf_processed_entries'][atdf_record_type].append(enriched_atdf_entry)
+
+
+@timing_decorator
+def run_conversion(
+        stdf_input_file: str, # Renamed for clarity from services.py call
+        atdf_output_file: Optional[str] = None, # Renamed for clarity
+        # output_atdf_database parameter removed
+        records_to_process: Optional[List[str]] = None, # Type hint updated
+        preprocessor_type: Optional[str] = None
+        # counters parameter will be added when add_hierarchical_ids is implemented
+) -> Dict[str, List[Dict]]:
+    """
+    Run STDF to ATDF conversion.
+    Optionally writes to an ATDF file.
+    Always returns a dictionary containing the processed ATDF entries, keyed by record type.
+    """
+    validate_input_file(stdf_input_file)
+
+    stdf_mapping = create_stdf_mapping()
+    stdf_processed_entries = initialize_record_entries()
+    atdf_processed_entries = initialize_record_entries()
+    record_flags = setup_record_flags(records_to_process)
+    
+    # Initialize counters for w_id and p_id generation for the current file
+    counters: Dict[str, int] = {'w_counter': 0, 'p_counter': 0}
+
+    try:
+        with managed_files(stdf_input_file, atdf_output_file) as (stdf_file, atdf_file_handle):
+            file_params = determine_file_params(stdf_file)
+
+            while True:
+                header_data = read_record_header(stdf_file, file_params['endianness'])
+                if not header_data:
+                    break
+
+                rec_len, rec_typ, rec_sub = header_data
+                data = stdf_file.read(rec_len)
+
+                if len(data) < rec_len:
+                    logger.error(f"Incomplete record data: expected {rec_len} bytes, got {len(data)}")
+                    continue
+
+                try:
+                    stdf_template = get_stdf_template(stdf_mapping, rec_typ, rec_sub)
+                    record_type = stdf_template['record_type']
+
+                    if not record_flags.get(record_type, False):
+                        continue
+
+                    atdf_template = get_atdf_template(record_type)
+
+                    process_record({
+                        'data': data,
+                        'endianness': file_params['endianness'],
+                        'stdf_template': stdf_template,
+                        'atdf_template': atdf_template,
+                        'stdf_processed_entries': stdf_processed_entries,
+                        'atdf_processed_entries': atdf_processed_entries,
+                        'stdf_file': stdf_file, # STDF file object for context if needed by handlers
+                        'atdf_file': atdf_file_handle, # ATDF file object, None if not outputting to file
+                        'preprocessor_type': preprocessor_type,
+                        'always_return_atdf_dict': True, # Ensure ATDF dict is populated
+                        'counters': counters # Pass counters dictionary
+                    })
+
+                except Exception as e:
+                    logger.error(f"Error processing record: {e}")
+                    continue
+
+
+
+        # Database creation logic removed.
+
+        logger.info(f"Successfully processed {stdf_input_file}")
+        # Return the processed ATDF entries
+        # WARNING: As noted in process_record, this dictionary will be incomplete
+        #          during Phase 3 as enrichment is bypassed. It will be corrected in Phase 4/5.
+        return atdf_processed_entries
+
+    except Exception as e:
+        logger.exception(f"Fatal error during conversion of {stdf_input_file}: {e}")
+        # Re-raise the exception to signal failure clearly.
+        raise
