@@ -1,6 +1,5 @@
 # src/converter.py
 import logging
-import json # Added for JSON operations
 from typing import Optional, List, Dict, Any
 from collections import defaultdict # Added for defaultdict
 from pydantic import BaseModel, ValidationError
@@ -111,7 +110,6 @@ def process_record(
 def run_conversion(
         stdf_input_file: str, # Renamed for clarity from services.py call
         atdf_output_file: Optional[str] = None, # Renamed for clarity
-        json_output_file: Optional[str] = None, # New parameter for JSON output
         # output_atdf_database parameter removed
         records_to_process: Optional[List[str]] = None, # Type hint updated
         modifier_type: Optional[str] = None  # Renamed from preprocessor_type
@@ -183,19 +181,6 @@ def run_conversion(
         # Database creation logic removed.
 
         logger.info(f"Successfully processed {stdf_input_file}")
-
-        # Write to JSON file if path is provided
-        if json_output_file:
-            logger.info(f"Writing processed ATDF data to JSON file: {json_output_file}")
-            try:
-                with open(json_output_file, 'w') as f_json:
-                    json.dump(atdf_processed_entries, f_json, indent=4) # indent=4 for readability
-                logger.info(f"Successfully wrote JSON to {json_output_file}")
-            except IOError as e:
-                logger.error(f"Error writing JSON to {json_output_file}: {e}")
-            except TypeError as e:
-                logger.error(f"Error serializing data to JSON for {json_output_file}: {e}. Ensure all data is JSON serializable.")
-
         # Return the processed ATDF entries
         # WARNING: As noted in process_record, this dictionary will be incomplete
         #          during Phase 3 as enrichment is bypassed. It will be corrected in Phase 4/5.

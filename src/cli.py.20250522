@@ -29,9 +29,8 @@ def parse_arguments():
     parser.add_argument('input',
                         help='Input STDF file path (must be a single file).') # Updated help string
     parser.add_argument('--output', '-o',
-                        nargs='+',
-                        choices=['atdf', 'json'],
-                        help="Specify output formats. Choose 'atdf', 'json', or both. Files will be named based on the input file.")
+                        action='store_true',
+                        help='Generate ATDF output files (using input filename with .atdf extension)')
     parser.add_argument('--records', '-r',
                         nargs='*',
                         help='Specific record types to process')
@@ -59,18 +58,12 @@ def main() -> int: # Explicitly indicate return type is exit code
         # Call run_conversion directly for the single file
         stdf_input_str = str(input_path)
         atdf_output_str: Optional[str] = None
-        json_output_str: Optional[str] = None
-
-        if args.output: # args.output is now a list or None
-            if 'atdf' in args.output:
-                atdf_output_str = str(input_path.with_suffix('.atdf'))
-            if 'json' in args.output:
-                json_output_str = str(input_path.with_suffix('.json'))
+        if args.output:
+            atdf_output_str = str(input_path.with_suffix('.atdf'))
 
         file_processed_data: Dict[str, List[Dict]] = run_conversion(
             stdf_input_file=stdf_input_str,
             atdf_output_file=atdf_output_str,
-            json_output_file=json_output_str, # New argument
             records_to_process=args.records,
             modifier_type=args.modifier  # Changed from preprocessor_type and args.preprocessor
         )

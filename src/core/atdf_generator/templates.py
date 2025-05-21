@@ -108,8 +108,8 @@ ATDF_TEMPLATES = {
         "index_array": {"stdf": "grp_indx", "value": None, "req": True},
         "mode_array": {"stdf": "grp_mode", "value": None, "req": False},
         "radix_array": {"stdf": "grp_radx", "value": None, "req": False},
-        "programmed_state": {"stdf": ("pgm_chal", "pgm_char"), "value": None, "req": False},
-        "returned_state": {"stdf": ("rtn_chal", "rtn_char"), "value": None, "req": False}
+        "programmed_state": {"stdf": ["pgm_chal", "pgm_char"], "value": None, "req": False},
+        "returned_state": {"stdf": ["rtn_chal", "rtn_char"], "value": None, "req": False}
     },
     "RDR": {
         "retest_bins": {"stdf": "rtst_bin", "value": None, "req": True}
@@ -128,8 +128,8 @@ ATDF_TEMPLATES = {
         "dib_id": {"stdf": "dib_id", "value": None, "req": False},
         "cable_type": {"stdf": "cabl_typ", "value": None, "req": False},
         "cable_id": {"stdf": "cabl_id", "value": None, "req": False},
-        "contractor_type": {"stdf": "cont_typ", "value": None, "req": False},
-        "contractor_id": {"stdf": "cont_id", "value": None, "req": False},
+        "contactor_type": {"stdf": "cont_typ", "value": None, "req": False},
+        "contactor_id": {"stdf": "cont_id", "value": None, "req": False},
         "laser_type": {"stdf": "lasr_typ", "value": None, "req": False},
         "laser_id": {"stdf": "lasr_id", "value": None, "req": False},
         "extra_type": {"stdf": "extr_typ", "value": None, "req": False},
@@ -210,8 +210,8 @@ ATDF_TEMPLATES = {
         "head_number": {"stdf": "head_num", "value": None, "req": True},
         "site_number": {"stdf": "site_num", "value": None, "req": True},
         "test_result": {"stdf": "result", "value": None, "req": False},
-        "pass_fail_flag": {"stdf": ("test_flg", "parm_flg"), "value": None, "req": True},
-        "alarm_flags": {"stdf": ("test_flg", "parm_flg"), "value": None, "req": False},
+        "pass_fail_flag": {"stdf": ["test_flg", "parm_flg"], "value": None, "req": True},
+        "alarm_flags": {"stdf": ["test_flg", "parm_flg"], "value": None, "req": False},
         "test_text": {"stdf": "test_txt", "value": None, "req": False},
         "alarm_id": {"stdf": "alarm_id", "value": None, "req": False},
         "limit_compare": {"stdf": "parm_flg", "value": None, "req": False},
@@ -233,8 +233,8 @@ ATDF_TEMPLATES = {
         "site_number": {"stdf": "site_num", "value": None, "req": True},
         "states_array": {"stdf": "rtn_stat", "value": None, "req": False},
         "results_array": {"stdf": "rtn_rslt", "value": None, "req": False},
-        "pass_fail_flag": {"stdf": ("test_flg", "parm_flg"), "value": None, "req": True},
-        "alarm_flags": {"stdf": ("test_flg", "parm_flg"), "value": None, "req": False},
+        "pass_fail_flag": {"stdf": ["test_flg", "parm_flg"], "value": None, "req": True},
+        "alarm_flags": {"stdf": ["test_flg", "parm_flg"], "value": None, "req": False},
         "test_text": {"stdf": "test_txt", "value": None, "req": False},
         "alarm_id": {"stdf": "alarm_id", "value": None, "req": False},
         "limit_compare": {"stdf": "parm_flg", "value": None, "req": False},

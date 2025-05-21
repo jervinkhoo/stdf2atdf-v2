@@ -62,7 +62,7 @@ def handle_atdf_entry(atdf_template: Dict, stdf_template: Dict) -> Dict:
         stdf_ref = atdf_info.get('stdf')
         value = None # Default value
 
-        if isinstance(stdf_ref, (list, tuple)):
+        if isinstance(stdf_ref, tuple):
             # Handle cases where multiple STDF fields map to one ATDF field
             try:
                 stdf_values = [stdf_template['fields'][field]['value'] for field in stdf_ref]
@@ -72,9 +72,9 @@ def handle_atdf_entry(atdf_template: Dict, stdf_template: Dict) -> Dict:
                     value = formatter(stdf_values)
                 else:
                     # If no specific formatter, maybe join or handle differently?
-                    # For now, set to None if no formatter defined for list/tuple input.
+                    # For now, set to None if no formatter defined for tuple input.
                     value = None
-                    logger.debug(f"No specific formatter found for list/tuple input {stdf_ref} for {atdf_field} in {record_type}")
+                    logger.debug(f"No specific formatter found for tuple input {stdf_ref} for {atdf_field} in {record_type}")
             except KeyError as e:
                 logger.warning(f"Missing STDF field {e} referenced by ATDF field {atdf_field} in {record_type}")
                 value = None # Assign None if source data is missing
@@ -103,53 +103,6 @@ def handle_atdf_entry(atdf_template: Dict, stdf_template: Dict) -> Dict:
         atdf_processed_entry[atdf_field] = value
 
     return atdf_processed_entry
-
-
-# Helper function to format values for ATDF text output based on field type
-def _format_value_for_atdf_text(field_name: str, value: Any, record_type: str) -> str:
-    """
-    Formats a Python value (potentially list or list of lists) into the
-    correct string representation for the ATDF text file based on field name.
-    """
-    if value is None:
-        return ""
-
-    # Handle specific array formats based on field name and record type
-    if field_name == 'PROGRAMMED_STATE' and record_type == 'PLR':
-        if isinstance(value, (list, tuple)) and all(isinstance(sublist, (list, tuple)) for sublist in value):
-            # List of lists format: inner comma, outer slash
-            group_strings = [','.join(map(str, group)) for group in value]
-            return '/'.join(group_strings)
-    elif field_name == 'RETURNED_STATE' and record_type == 'PLR':
-         if isinstance(value, (list, tuple)) and all(isinstance(sublist, (list, tuple)) for sublist in value):
-            # List of lists format: inner comma, outer slash
-            group_strings = [','.join(map(str, group)) for group in value]
-            return '/'.join(group_strings)
-    elif field_name == 'GENERIC_DATA' and record_type == 'GDR':
-        if isinstance(value, (list, tuple)):
-            # Simple list format: pipe separator
-            return '|'.join(map(str, value))
-    elif field_name == 'MODE_ARRAY' and record_type == 'PLR':
-         if isinstance(value, (list, tuple)):
-            # Simple list format: comma separator
-            return ','.join(map(str, value))
-    elif field_name == 'RADIX_ARRAY' and record_type == 'PLR':
-         if isinstance(value, (list, tuple)):
-            # Simple list format: comma separator
-            return ','.join(map(str, value))
-    elif field_name == 'STATES_ARRAY' and record_type == 'MPR':
-         if isinstance(value, (list, tuple)):
-            # Simple list format: comma separator
-            return ','.join(map(str, value))
-    # Add other specific array/list formats here as needed
-
-    # Default handling for scalar types or lists that don't need special joining
-    # This will catch lists from format_default_value for example, joining with comma
-    if isinstance(value, (list, tuple)):
-         return ','.join(map(str, value))
-
-    # Default string conversion for all other types (int, float, bool, str)
-    return str(value)
 
 
 # --- Function moved from src/core/atdf/handler.py ---
@@ -222,8 +175,7 @@ def write_atdf_file(atdf_file: IO[str], atdf_processed_entry: Dict[str, Any], at
             formatted_dt = format_atdf_datetime_from_epoch(value)
             value_str = formatted_dt or ""  # Converts None to an empty string
         else:
-            # Use the helper function for other field types
-            value_str = _format_value_for_atdf_text(field_name, value, record_type)
+            value_str = str(value) if value is not None else ""
         
         
              

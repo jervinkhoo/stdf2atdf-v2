@@ -115,8 +115,8 @@ STDF_TEMPLATES = {
         "chan_nam": {"dtype": "C*n", "ref": None, "value": None, "missing": "length byte = 0"},
         "phy_nam": {"dtype": "C*n", "ref": None, "value": None, "missing": "length byte = 0"},
         "log_nam": {"dtype": "C*n", "ref": None, "value": None, "missing": "length byte = 0"},
-        "head_num": {"dtype": "U*1", "ref": None, "value": None, "missing": 1},
-        "site_num": {"dtype": "U*1", "ref": None, "value": None, "missing": 1}
+        "head_num": {"dtype": "U*1", "ref": None, "value": None, "missing": None},
+        "site_num": {"dtype": "U*1", "ref": None, "value": None, "missing": None}
     },
     "PGR": {
         "rec_len": {"dtype": "U*2", "ref": None, "value": None, "missing": None},

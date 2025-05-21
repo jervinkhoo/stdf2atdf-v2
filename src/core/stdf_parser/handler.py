@@ -63,10 +63,17 @@ def read_record_header(stdf_file: IO[bytes], endianness: str) -> Optional[Tuple[
 
 # --- Functions moved from src/core/stdf/handler.py ---
 
+
 def handle_stdf_entry(stdf_template: Dict, data: bytes, endianness: str) -> Dict:
     """Process data fields within a single STDF record."""
     offset = 0
     stdf_processed_entry = {}
+    
+    data_len = len(data) # Length of the current record's data payload
+
+    if data_len == 0: # Handles records like EPS
+        logger.debug(f"Record type {stdf_template.get('record_type', 'Unknown')} has empty data payload. No fields to parse.")
+        return stdf_processed_entry
 
     # Start from third field (skip rec_len, rec_typ, rec_sub which are in header)
     # Ensure 'fields' key exists in the template
@@ -77,6 +84,15 @@ def handle_stdf_entry(stdf_template: Dict, data: bytes, endianness: str) -> Dict
     fields_to_process = list(stdf_template['fields'].items())[3:]
 
     for stdf_field, stdf_info in fields_to_process:
+        # >>> THE FIX IS HERE <<<
+        # Check if all data has been consumed BEFORE trying to parse the current field
+        if offset >= data_len:
+            logger.debug(f"No more data in record {stdf_template.get('record_type', 'Unknown')} to parse field '{stdf_field}'. "
+                         f"Offset: {offset}, DataLen: {data_len}. Field will retain default/None.")
+            break # Stop processing further fields for this record; all data consumed.
+        # >>> END OF THE PRIMARY FIX <<<
+        
+        
         # Ensure stdf_info is a dictionary before accessing keys
         if not isinstance(stdf_info, dict):
              logger.warning(f"Invalid field info format for {stdf_field} in record {stdf_template.get('record_type', 'Unknown')}. Skipping field.")
@@ -104,15 +120,15 @@ def handle_stdf_entry(stdf_template: Dict, data: bytes, endianness: str) -> Dict
             # Uses unpack_dtype from .unpackers
             value, offset = unpack_dtype(dtype, data, endianness, offset, array_size=array_size)
         except struct.error as e:
-            logger.error(f"Struct unpack error for field {stdf_field} (dtype {dtype}) in record {stdf_template.get('record_type', 'Unknown')}: {e}. Offset: {offset}, Data length: {len(data)}")
+            logger.error(f"Struct unpack error for field {stdf_field} (dtype {dtype}) in record {stdf_template.get('record_type', 'Unknown')}: {e}. Offset: {offset}, Data length: {data_len}")
             # Decide how to handle - skip record, return partial, raise?
             # Returning partial data might be problematic. Let's skip the rest of the fields for this record.
             break
         except IndexError as e:
-             logger.error(f"Index error (likely insufficient data) for field {stdf_field} (dtype {dtype}) in record {stdf_template.get('record_type', 'Unknown')}: {e}. Offset: {offset}, Data length: {len(data)}")
+             logger.error(f"Index error (likely insufficient data) for field {stdf_field} (dtype {dtype}) in record {stdf_template.get('record_type', 'Unknown')}: {e}. Offset: {offset}, Data length: {data_len}")
              break # Stop processing this record
         except Exception as e: # Catch other potential unpack errors
-             logger.error(f"Unexpected error unpacking field {stdf_field} (dtype {dtype}) in record {stdf_template.get('record_type', 'Unknown')}: {e}. Offset: {offset}, Data length: {len(data)}")
+             logger.error(f"Unexpected error unpacking field {stdf_field} (dtype {dtype}) in record {stdf_template.get('record_type', 'Unknown')}: {e}. Offset: {offset}, Data length: {data_len}")
              break # Stop processing this record
 
 
@@ -126,10 +142,10 @@ def handle_stdf_entry(stdf_template: Dict, data: bytes, endianness: str) -> Dict
         stdf_processed_entry[stdf_field] = stdf_info['value']
 
 
-        if offset > len(data):
-             logger.warning(f"Offset ({offset}) exceeded data length ({len(data)}) after processing field {stdf_field} in record {stdf_template.get('record_type', 'Unknown')}. Record may be corrupt or truncated.")
+        if offset > data_len:
+             logger.warning(f"Offset ({offset}) exceeded data length ({data_len}) after processing field {stdf_field} in record {stdf_template.get('record_type', 'Unknown')}. Record may be corrupt or truncated.")
              break # Stop processing this record
-        elif offset == len(data):
+        elif offset == data_len:
              break # End of data for this record
 
     # Check if offset matches rec_len at the end (optional validation)
@@ -138,7 +154,6 @@ def handle_stdf_entry(stdf_template: Dict, data: bytes, endianness: str) -> Dict
     #    logger.warning(f"Final offset ({offset}) does not match record length ({rec_len_from_header}) for record {stdf_template.get('record_type', 'Unknown')}")
 
     return stdf_processed_entry
-
 # handle_stdf_entries function removed as per refactoring plan.
 # Its logic will be integrated into src/converter.py process_record.
 # --- Main Orchestration Function ---

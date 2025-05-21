@@ -100,7 +100,7 @@ def format_state_field(stdf_values): # Renamed from parse_state_field
 
     result = [format_function(cha) for cha in iterable]
 
-    return result
+    return '/'.join(result)
 
 def format_data_file_type(_): # Renamed from parse_data_file_type
     return 'A'
@@ -161,27 +161,27 @@ def format_ftr_relative_address(stdf_value): # Renamed from parse_ftr_relative_a
     return hex(stdf_value)[2:] if isinstance(stdf_value, int) else None
 
 def format_generic_data(stdf_value): # Renamed from parse_generic_data
-    return list(stdf_value)
+    return '|'.join(stdf_value)
 
 def format_mode_array(stdf_value): # Renamed from parse_mode_array
-    return [hex(num)[2:] for num in stdf_value]
+    return ','.join(hex(num)[2:] for num in stdf_value)
 
 def format_radix_array(stdf_value): # Renamed from parse_radix_array
     mapping = {2: 'B', 8: 'O', 10: 'D', 16: 'H', 20: 'S'}
     if all(element == 0 for element in stdf_value):
         return None
-    return [mapping[element] for element in stdf_value]
+    return ','.join(mapping[element] for element in stdf_value)
 
 def format_states_array(stdf_value):
-    if isinstance(stdf_value, (list, tuple)) and all(isinstance(x, int) for x in stdf_value):
-        return [hex(x)[2:].upper() if x >= 10 else str(x) for x in stdf_value]
+    if isinstance(stdf_value, tuple) and all(isinstance(x, int) for x in stdf_value):
+        return ','.join(hex(x)[2:].upper() if x >= 10 else str(x) for x in stdf_value)
 
 
 def format_default_value(stdf_value): # Renamed from process_default_value
     if stdf_value is None:
         return None
-    elif isinstance(stdf_value, (list, tuple)):
-        return list(map(str, stdf_value))
+    elif isinstance(stdf_value, tuple):
+        return ','.join(map(str, stdf_value))
     return stdf_value
 
 def format_atdf_datetime_from_epoch(epoch_time: int, timezone_str: str = 'UTC') -> str:
