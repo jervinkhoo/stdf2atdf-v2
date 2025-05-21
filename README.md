@@ -5,6 +5,7 @@ A command-line tool for converting semiconductor test data from Standard Test Da
 ## Features
 
 - Convert STDF files to ATDF format.
+- Optionally generate JSON output of the processed data.
 - Support for different equipment manufacturers (Advantest, Teradyne, Eagle) via record modifiers.
 - Filter processing by specific record types.
 - Comprehensive logging to `conversion.log`.
@@ -32,13 +33,19 @@ pip install -r requirements.txt
 
 ```bash
 # Convert a single STDF file to ATDF
-python -m src input.stdf --output
+python -m src input.stdf --output atdf
 
-# Process a single STDF file, specifying a record modifier
-python -m src input.stdf --output --modifier advantest
+# Convert a single STDF file to JSON
+python -m src input.stdf --output json
 
-# Process only specific record types (e.g., MIR, PTR, PRR)
-python -m src input.stdf --output --records MIR PTR PRR
+# Convert a single STDF file to both ATDF and JSON
+python -m src input.stdf --output atdf json
+
+# Process a single STDF file, specifying a record modifier and ATDF output
+python -m src input.stdf --output atdf --modifier advantest
+
+# Process only specific record types (e.g., MIR, PTR, PRR) and output to ATDF
+python -m src input.stdf --output atdf --records MIR PTR PRR
 ```
 
 ### Command Line Arguments
@@ -46,7 +53,7 @@ python -m src input.stdf --output --records MIR PTR PRR
 | Argument | Short | Description |
 |----------|-------|-------------|
 | `input` | | Input STDF file path (must be a single file). |
-| `--output` | `-o` | Generate ATDF output file (using input filename with .atdf extension). If not specified, ATDF data is processed but not written to a file. |
+| `--output` | `-o` | Specify output formats. Choose 'atdf', 'json', or both. Files will be named based on the input file (e.g., `input.atdf`, `input.json`). If not specified, data is processed but no output files are written. |
 | `--records` | `-r` | Specific record types to process (e.g., MIR PTR PRR). If not specified, all supported records are processed. |
 | `--modifier` | `-m` | Specify the record modifier to use (`advantest`, `teradyne`, `eagle`). Applies manufacturer-specific transformations. |
 
@@ -105,10 +112,11 @@ stdf2atdf/
             *   Parses STDF data using `stdf_parser/handler.py::handle_stdf_entry` (which uses `stdf_parser/unpackers.py`).
             *   Generates a base ATDF dictionary using `atdf_generator/handler.py::handle_atdf_entry` (which uses `atdf_generator/formatters.py`).
             *   Applies record modification (if a `--modifier` is specified) using `data_transformers/record_modifiers/base.py::modify_record`.
-            *   If `--output` is specified, writes the modified ATDF entry to the output file using `atdf_generator/handler.py::write_atdf_file`.
+            *   If `'atdf'` is in `--output`, writes the modified ATDF entry to the output file using `atdf_generator/handler.py::write_atdf_file`.
             *   Enriches the ATDF entry with hierarchical IDs (`w_id`, `p_id`) using `data_transformers/id_enricher.py::add_hierarchical_ids`.
             *   Collects processed ATDF entries.
     *   Returns a dictionary of processed ATDF entries.
+    *   If `'json'` is in `--output`, writes the `atdf_processed_entries` dictionary to a JSON file.
     *   `cli.py` then (temporarily) prints this data in a tabular format using `pandas` for verification.
 
 ## Key Modules and Functionality
